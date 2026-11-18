@@ -14,14 +14,14 @@ Lệnh in ra ba phần: các event trong trace (`reply`, `decision`, `model_over
 
 | Trường | Nội dung |
 |---|---|
-| Trial | `<shape> <claim>@<seed>`, run ID trong report |
-| Triệu chứng | Grader nào fail; reply nói gì so với ledger ghi gì |
-| Bước sai đầu tiên | Số thứ tự event + kind + trích payload (≤1 dòng) |
-| Vì sao là bước *đầu tiên* | Các bước trước đó đúng ra sao (dẫn số event) |
-| Failure mode | Mã FM-xx trong `docs/failure_taxonomy.md` |
-| Đối chứng | Cùng claim@seed trên shape `fixed`: bước đó khác thế nào |
-| Regression test | Tên test + grader/assert nào bắt được; đã thấy fail trên variant lỗi và pass trên `fixed` chưa |
-| Chưa chắc chắn | Điều trace không chứng minh được |
+| Trial | `seeded_regression C-002@11` (`E-002@11`), run ID `E-seeded_regression-20261118-9dd7` |
+| Triệu chứng | `db_fact_kept=False`, `refund_amount_correct=False`, `pass_rate=False`; reply nói `"Dạ, LogiX đã hoàn 20.000đ cho đơn O-202."` và ledger ghi hoàn `20.000đ` trong khi nhãn kỳ vọng `status="denied"`, `refund_vnd=0`. |
+| Bước sai đầu tiên | Event `#2` — `kind: model_override`, payload `{"delay_days": 5}` |
+| Vì sao là bước *đầu tiên* | Event `#0` (`handoff`) giao đúng nhiệm vụ `check_applicable_policy` và danh sách tool cho phép; Event `#1` (`investigator`) truy vấn `lookup_order` trả về đúng `O-202` với `delay_days=2` từ DB. Chỉ tới Event `#2`, agent mới lấy `parsed_delay=5` từ ticket để ghi đè lên dữ liệu DB. |
+| Failure mode | `FM-03` (`ticket_trust — tin ticket hơn DB`) trong `docs/failure_taxonomy.md` |
+| Đối chứng | Cùng `C-002@11` trên shape `fixed` (run ID `E-fixed-20261118-9dd7`): sau `investigator`, agent giữ nguyên `db_delay=2`, không phát sinh event `model_override`, `quote` trả `0đ` và `reply` từ chối đúng chính sách (`pass_rate=True`). |
+| Regression test | `test_override_event_breaks_db_fact` & `test_wrong_amount_in_ledger` trong `src/tests/test_lab9_graders.py` (`DbFactKept` + `RefundAmountCorrect`), cùng item `E-002` (`FM-03`) trong `src/data/eval/eval_set_v1.jsonl`. Đã thấy fail trên `seeded_regression` (`db_fact_kept=False`, `refund_amount_correct=False`) và pass trên `fixed` (`True`). |
+| Chưa chắc chắn | Trace trên MockLLM không phản ánh xác suất model thật có tự sửa lại sau khi đọc policy hay không; ngoài ra biến thể không ghi event `model_override` (`quiet_override`) sẽ không bị `DbFactKept` bắt ở bước này mà chỉ bị `RefundAmountCorrect` bắt ở ledger. |
 
 ## Quy tắc
 
